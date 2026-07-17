@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatToDo</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #f4f0ea;
+    --fg: #2c2826;
+    --muted: #b0a89e;
+    --faint: #ddd8d0;
+    --radius: 12px;
+    --transition: 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    --transition-fast: 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    height: 100dvh;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background var(--transition);
+  }
+
+  /* ========== LAYERS ========== */
+
+  .layer {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity var(--transition), transform var(--transition);
+    pointer-events: none;
+  }
+  .layer.active {
+    pointer-events: auto;
+  }
+
+  /* --- Focus layer --- */
+  #focus-layer {
+    z-index: 2;
+    opacity: 1;
+    transform: none;
+  }
+  #focus-layer.obscured {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  #focus-task {
+    cursor: pointer;
+    position: relative;
+    max-width: 640px;
+    padding: 48px 40px;
+    text-align: center;
+  }
+
+  #focus-task .index-hint {
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    transition: opacity var(--transition-fast);
+    font-weight: 500;
+  }
+
+  #focus-task .text {
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    transition: transform var(--transition-fast), opacity var(--transition-fast);
+  }
+  #focus-task .text.done-exit {
+    transform: translateY(-12px) scale(0.97);
+    opacity: 0;
+  }
+  #focus-task .text.done-enter {
+    transform: translateY(12px) scale(0.97);
+    opacity: 0;
+  }
+
+  #focus-task .empty-message {
+    font-size: clamp(24px, 4vw, 40px);
+    font-weight: 500;
+    color: var(--muted);
+  }
+
+  /* Checkmark burst */
+  #check-burst {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 80px;
+    height: 80px;
+    margin: -40px 0 0 -40px;
+    z-index: 5;
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.4);
+    transition: none;
+  }
+  #check-burst.animate {
+    animation: burst 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  @keyframes burst {
+    0%   { opacity: 1; transform: scale(0.4); }
+    50%  { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.2); }
+  }
+  #check-burst svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    stroke: #4a7c59;
+    stroke-width: 3;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* --- List layer --- */
+  #list-layer {
+    z-index: 1;
+    opacity: 0;
+    transform: translateY(40px);
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 60px 24px 40px;
+    overflow-y: auto;
+  }
+  #list-layer.active {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  #list-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    max-width: 520px;
+    width: 100%;
+    margin: 0 auto 28px;
+    padding: 0 4px;
+  }
+  #list-header h2 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--fg);
+  }
+  #list-header .count {
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 450;
+  }
+
+  #task-list {
+    list-style: none;
+    max-width: 520px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .list-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .list-item:hover { background: rgba(0,0,0,0.04); }
+  .list-item:active { transform: scale(0.98); }
+
+  .list-item .idx {
+    width: 24px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    text-align: right;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .list-item .label {
+    flex: 1;
+    font-size: 16px;
+    font-weight: 450;
+    line-height: 1.4;
+    color: var(--fg);
+  }
+  .list-item .label.done {
+    text-decoration: line-through;
+    color: var(--muted);
+  }
+  .list-item .check-ring {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--faint);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+  }
+  .list-item .check-ring.filled {
+    border-color: #4a7c59;
+    background: #4a7c59;
+  }
+  .list-item .check-ring svg {
+    display: block;
+    width: 12px;
+    height: 12px;
+    stroke: #fff;
+    stroke-width: 2.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+  .list-item .check-ring.filled svg {
+    opacity: 1;
+  }
+
+  /* Drag handle */
+  .list-item .drag-handle {
+    width: 16px;
+    height: 20px;
+    flex-shrink: 0;
+    cursor: grab;
+    opacity: 0.3;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    transition: opacity var(--transition-fast);
+  }
+  .list-item:hover .drag-handle { opacity: 0.6; }
+  .list-item .drag-handle::before,
+  .list-item .drag-handle::after {
+    content: '';
+    display: block;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--muted);
+  }
+  .list-item .drag-handle::before { width: 100%; }
+  .list-item .drag-handle::after { width: 70%; }
+
+  /* New task input */
+  #add-task-area {
+    max-width: 520px;
+    width: 100%;
+    margin: 12px auto 0;
+    padding: 0 18px;
+  }
+  #new-task-input {
+    width: 100%;
+    padding: 14px 18px;
+    border: none;
+    border-radius: var(--radius);
+    background: rgba(0,0,0,0.04);
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--fg);
+    outline: none;
+    transition: background var(--transition-fast);
+  }
+  #new-task-input:focus {
+    background: rgba(0,0,0,0.07);
+  }
+  #new-task-input::placeholder {
+    color: var(--muted);
+  }
+
+  /* Keyboard hint */
+  #keyboard-hint {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+    transition: opacity var(--transition);
+    pointer-events: none;
+  }
+  #keyboard-hint.hidden {
+    opacity: 0;
+  }
+  #keyboard-hint kbd {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.06);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  /* Scrollbar */
+  #list-layer::-webkit-scrollbar { width: 4px; }
+  #list-layer::-webkit-scrollbar-track { background: transparent; }
+  #list-layer::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 2px; }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    #focus-task { padding: 32px 20px; }
+    #list-layer { padding: 48px 16px 32px; }
+    .list-item { padding: 14px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Checkmark burst -->
+<div id="check-burst">
+  <svg viewBox="0 0 24 24"><polyline points="5,13 9,17 19,7"/></svg>
+</div>
+
+<!-- Focus layer -->
+<div id="focus-layer" class="layer active">
+  <div id="focus-task">
+    <div class="index-hint" id="focus-index"></div>
+    <div class="text" id="focus-text"></div>
+  </div>
+</div>
+
+<!-- List layer -->
+<div id="list-layer" class="layer">
+  <div id="list-header">
+    <h2>Tasks</h2>
+    <span class="count" id="list-count"></span>
+  </div>
+  <ul id="task-list"></ul>
+  <div id="add-task-area">
+    <input id="new-task-input" type="text" placeholder="Add a task..." autocomplete="off">
+  </div>
+</div>
+
+<!-- Keyboard hint -->
+<div id="keyboard-hint">
+  <kbd>Space</kbd> complete · <kbd>↓</kbd> show list · <kbd>Esc</kbd> focus
+</div>
+
+<script>
+// ========== DATA ==========
+const STORAGE_KEY = 'whattodo_tasks';
+
+let tasks = [];
+let currentIndex = 0;    // index into tasks (only active, non-done)
+let showingList = false;
+let isAnimating = false;
+
+function loadTasks() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && Array.isArray(parsed) && parsed.length) {
+      tasks = parsed;
+      return;
+    }
+  } catch (_) {}
+  // Default sample tasks
+  tasks = [
+    { id: '1', text: 'Write project proposal', done: false },
+    { id: '2', text: 'Review team pull requests', done: false },
+    { id: '3', text: 'Plan sprint retro agenda', done: false },
+    { id: '4', text: 'Order new desk lamp', done: false },
+    { id: '5', text: 'Update personal portfolio', done: false },
+  ];
+}
+
+function saveTasks() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+}
+
+// ========== UI HELPERS ==========
+const focusLayer = document.getElementById('focus-layer');
+const listLayer = document.getElementById('list-layer');
+const focusText = document.getElementById('focus-text');
+const focusIndex = document.getElementById('focus-index');
+const taskListEl = document.getElementById('task-list');
+const listCount = document.getElementById('list-count');
+const newTaskInput = document.getElementById('new-task-input');
+const keyboardHint = document.getElementById('keyboard-hint');
+const checkBurst = document.getElementById('check-burst');
+let focusEmpty = false;
+
+function activeTasks() {
+  return tasks.filter(t => !t.done);
+}
+
+function getCurrentTask() {
+  const active = activeTasks();
+  if (active.length === 0) return null;
+  if (currentIndex >= active.length) currentIndex = active.length - 1;
+  return active[currentIndex] ?? null;
+}
+
+function renderFocus(animate = false) {
+  const active = activeTasks();
+  const task = active[currentIndex] ?? null;
+
+  if (!task || !active.length) {
+    if (!focusEmpty) {
+      focusEmpty = true;
+      focusText.className = 'text empty-message';
+      focusText.textContent = 'All done ✦';
+      focusIndex.textContent = '';
+    }
+    return;
+  }
+  focusEmpty = false;
+  focusIndex.textContent = `${currentIndex + 1} of ${active.length} remaining`;
+
+  if (animate) {
+    focusText.className = 'text done-enter';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        focusText.textContent = task.text;
+        focusText.className = 'text';
+      });
+    });
+  } else {
+    focusText.textContent = task.text;
+    focusText.className = 'text';
+  }
+}
+
+function renderList() {
+  // Preserve scroll position
+  taskListEl.innerHTML = '';
+  tasks.forEach((t, i) => {
+    const li = document.createElement('li');
+    li.className = 'list-item';
+    li.dataset.id = t.id;
+
+    // Drag handle
+    const handle = document.createElement('div');
+    handle.className = 'drag-handle';
+    li.appendChild(handle);
+
+    // Index
+    const idx = document.createElement('span');
+    idx.className = 'idx';
+    idx.textContent = `${i + 1}`;
+    li.appendChild(idx);
+
+    // Check ring
+    const ring = document.createElement('div');
+    ring.className = 'check-ring' + (t.done ? ' filled' : '');
+    ring.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="5,13 9,17 19,7"/></svg>';
+    li.appendChild(ring);
+
+    // Label
+    const label = document.createElement('span');
+    label.className = 'label' + (t.done ? ' done' : '');
+    label.textContent = t.text;
+    li.appendChild(label);
+
+    // Check toggle
+    li.addEventListener('click', (e) => {
+      if (e.target.closest('.drag-handle')) return;
+      if (isAnimating) return;
+      t.done = !t.done;
+      saveTasks();
+      renderList();
+      syncAfterListChange();
+    });
+
+    // Long press to focus this task
+    let pressTimer = null;
+    li.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.drag-handle')) return;
+      pressTimer = setTimeout(() => {
+        pressTimer = null;
+        if (t.done) return;
+        const active = activeTasks();
+        const idx = active.indexOf(t);
+        if (idx >= 0) {
+          currentIndex = idx;
+          showFocus();
+        }
+      }, 400);
+    });
+    li.addEventListener('pointerup', () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+    li.addEventListener('pointercancel', () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+    li.addEventListener('pointerleave', () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+
+    taskListEl.appendChild(li);
+  });
+
+  const done = tasks.filter(t => t.done).length;
+  listCount.textContent = `${done}/${tasks.length} done`;
+  updateListHeader();
+}
+
+function updateListHeader() {
+  const remaining = tasks.filter(t => !t.done).length;
+  const h2 = document.querySelector('#list-header h2');
+  h2.textContent = remaining ? `${remaining} task${remaining !== 1 ? 's' : ''} remaining` : 'All done';
+}
+
+function syncAfterListChange() {
+  const active = activeTasks();
+  if (active.length === 0) { currentIndex = 0; }
+  else if (currentIndex >= active.length) { currentIndex = active.length - 1; }
+  renderFocus();
+}
+
+// ========== TRANSITIONS ==========
+function completeCurrent() {
+  if (isAnimating) return;
+  const task = getCurrentTask();
+  if (!task) return;
+
+  isAnimating = true;
+
+  // Burst check
+  checkBurst.classList.remove('animate');
+  void checkBurst.offsetWidth;
+  checkBurst.classList.add('animate');
+
+  // Animate out
+  focusText.className = 'text done-exit';
+
+  setTimeout(() => {
+    task.done = true;
+    saveTasks();
+    renderList();
+    syncAfterListChange();
+
+    const active = activeTasks();
+    // Advance to next
+    if (active.length > 0 && currentIndex < active.length) {
+      renderFocus(true);
+    } else {
+      renderFocus();
+    }
+
+    setTimeout(() => {
+      isAnimating = false;
+      if (activeTasks().length === 0) {
+        keyboardHint.classList.remove('hidden');
+      }
+    }, 200);
+  }, 300);
+}
+
+function showList() {
+  if (showingList) return;
+  showingList = true;
+  focusLayer.classList.add('obscured');
+  listLayer.classList.add('active');
+  keyboardHint.classList.add('hidden');
+  renderList();
+  newTaskInput.focus();
+}
+
+function showFocus() {
+  if (!showingList) return;
+  showingList = false;
+  focusLayer.classList.remove('obscured');
+  listLayer.classList.remove('active');
+  renderFocus();
+  keyboardHint.classList.remove('hidden');
+  newTaskInput.blur();
+}
+
+// ========== BACKGROUND HUE ==========
+function updateBackground() {
+  const h = new Date().getHours();
+  let hue, sat, light;
+  if (h < 6) {
+    // Deep night
+    hue = 240; sat = 10; light = 8;
+  } else if (h < 8) {
+    // Sunrise — warm
+    const t = (h - 6) / 2;
+    hue = 30 + t * 10;
+    sat = 12 + t * 5;
+    light = 12 + t * 15;
+  } else if (h < 12) {
+    // Morning — neutral warm
+    hue = 40; sat = 8; light = 38;
+  } else if (h < 17) {
+    // Midday — cool
+    hue = 45; sat = 6; light = 42;
+  } else if (h < 20) {
+    // Sunset — warm
+    const t = (h - 17) / 3;
+    hue = 30 - t * 10;
+    sat = 10 + t * 5;
+    light = 38 - t * 15;
+  } else {
+    // Evening — warm dim
+    const t = (h - 20) / 4;
+    hue = 25; sat = 10 + t * 5;
+    light = 25 - t * 12;
+  }
+  sat = Math.round(sat);
+  light = Math.min(48, Math.max(6, Math.round(light)));
+  document.body.style.background = `hsl(${hue}, ${sat}%, ${light}%)`;
+
+  // Adjust fg/muted for readability
+  const isDark = light < 30;
+  document.documentElement.style.setProperty('--fg', isDark ? '#e8e4de' : '#2c2826');
+  document.documentElement.style.setProperty('--muted', isDark ? '#8a847a' : '#b0a89e');
+  document.documentElement.style.setProperty('--faint', isDark ? '#3a3632' : '#ddd8d0');
+  document.documentElement.style.setProperty('--bg', `hsl(${hue}, ${sat}%, ${light}%)`);
+}
+
+// ========== INPUT ==========
+newTaskInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && newTaskInput.value.trim()) {
+    const t = newTaskInput.value.trim();
+    tasks.push({ id: String(Date.now()), text: t, done: false });
+    newTaskInput.value = '';
+    saveTasks();
+    renderList();
+    syncAfterListChange();
+  }
+  if (e.key === 'Escape') {
+    showFocus();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  // Ignore if typing
+  if (document.activeElement === newTaskInput) return;
+
+  if (e.key === ' ' || e.key === 'Enter') {
+    e.preventDefault();
+    if (showingList) {
+      showFocus();
+    } else {
+      completeCurrent();
+    }
+  }
+  if (e.key === 'ArrowDown' || e.key === 'j') {
+    e.preventDefault();
+    showList();
+  }
+  if (e.key === 'Escape' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    showFocus();
+  }
+});
+
+// Touch / click on focus to advance
+document.getElementById('focus-task').addEventListener('click', completeCurrent);
+
+// Swipe down on mobile to show list
+let touchStartY = 0;
+document.addEventListener('touchstart', (e) => {
+  if (showingList) return;
+  touchStartY = e.changedTouches[0].screenY;
+}, { passive: true });
+document.addEventListener('touchmove', (e) => {
+  if (showingList) return;
+  const dy = e.changedTouches[0].screenY - touchStartY;
+  if (dy > 50) {
+    showList();
+  }
+}, { passive: true });
+
+// ========== INIT ==========
+loadTasks();
+updateBackground();
+renderFocus();
+renderList();
+// Start showing hint until first interaction
+keyboardHint.classList.remove('hidden');
+
+// Update background every 10 minutes
+setInterval(updateBackground, 10 * 60 * 1000);
+
+// Save dirty state periodically (and sync across tabs)
+window.addEventListener('beforeunload', saveTasks);
+</script>
+</body>
+</html>
