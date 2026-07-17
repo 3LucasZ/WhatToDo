@@ -8,11 +8,16 @@
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
   :root {
-    --bg: #f4f0ea;
-    --fg: #2c2826;
-    --muted: #b0a89e;
-    --faint: #ddd8d0;
+    --bg: #fdf6f0;
+    --fg: #3d2c2a;
+    --muted: #b2958a;
+    --faint: rgba(180, 120, 100, 0.15);
+    --glass-bg: rgba(255, 255, 255, 0.55);
+    --glass-hover: rgba(255, 255, 255, 0.75);
+    --glass-border: rgba(255, 255, 255, 0.4);
+    --accent: #e87a5d;
     --radius: 12px;
+    --glass-radius: 16px;
     --transition: 0.5s cubic-bezier(0.22, 1, 0.36, 1);
     --transition-fast: 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   }
@@ -25,7 +30,19 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
-    transition: background var(--transition);
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 15%, rgba(255, 200, 140, 0.35), transparent),
+      radial-gradient(ellipse 70% 50% at 90% 20%, rgba(255, 160, 130, 0.25), transparent),
+      radial-gradient(ellipse 60% 50% at 50% 85%, rgba(200, 220, 255, 0.30), transparent),
+      radial-gradient(ellipse 50% 40% at 20% 60%, rgba(255, 230, 160, 0.20), transparent);
   }
 
   /* ========== LAYERS ========== */
@@ -52,6 +69,7 @@
   #focus-layer.obscured {
     opacity: 0;
     transform: scale(0.96);
+    pointer-events: none;
   }
 
   #focus-task {
@@ -120,7 +138,7 @@
     display: block;
     width: 100%;
     height: 100%;
-    stroke: #4a7c59;
+    stroke: var(--accent);
     stroke-width: 3;
     fill: none;
     stroke-linecap: round;
@@ -134,13 +152,23 @@
     transform: translateY(40px);
     flex-direction: column;
     align-items: stretch;
-    justify-content: flex-start;
-    padding: 60px 24px 40px;
-    overflow-y: auto;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(32px) saturate(1.4);
+    backdrop-filter: blur(32px) saturate(1.4);
   }
   #list-layer.active {
     opacity: 1;
     transform: translateY(0);
+  }
+  #list-layer-inner {
+    flex: 1;
+    overflow-y: auto;
+    padding: 60px 24px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    -webkit-overflow-scrolling: touch;
+    pointer-events: auto;
   }
 
   #list-header {
@@ -179,12 +207,14 @@
     align-items: center;
     gap: 14px;
     padding: 16px 18px;
-    border-radius: var(--radius);
+    border-radius: var(--glass-radius);
     cursor: pointer;
-    transition: background var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    transition: background var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast), border-color var(--transition-fast);
     -webkit-tap-highlight-color: transparent;
   }
-  .list-item:hover { background: rgba(0,0,0,0.04); }
+  .list-item:hover { background: var(--glass-hover); border-color: rgba(255,255,255,0.12); }
   .list-item:active { transform: scale(0.98); }
 
   .list-item .idx {
@@ -219,8 +249,8 @@
     transition: border-color var(--transition-fast), background var(--transition-fast);
   }
   .list-item .check-ring.filled {
-    border-color: #4a7c59;
-    background: #4a7c59;
+    border-color: var(--accent);
+    background: var(--accent);
   }
   .list-item .check-ring svg {
     display: block;
@@ -273,17 +303,20 @@
   #new-task-input {
     width: 100%;
     padding: 14px 18px;
-    border: none;
-    border-radius: var(--radius);
-    background: rgba(0,0,0,0.04);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--glass-radius);
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
     font-size: 15px;
     font-family: inherit;
     color: var(--fg);
     outline: none;
-    transition: background var(--transition-fast);
+    transition: background var(--transition-fast), border-color var(--transition-fast);
   }
   #new-task-input:focus {
-    background: rgba(0,0,0,0.07);
+    background: var(--glass-hover);
+    border-color: rgba(255,255,255,0.14);
   }
   #new-task-input::placeholder {
     color: var(--muted);
@@ -309,21 +342,22 @@
     display: inline-block;
     padding: 2px 8px;
     border-radius: 4px;
-    background: rgba(0,0,0,0.06);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     font-family: inherit;
     font-size: 12px;
     font-weight: 500;
   }
 
   /* Scrollbar */
-  #list-layer::-webkit-scrollbar { width: 4px; }
-  #list-layer::-webkit-scrollbar-track { background: transparent; }
-  #list-layer::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 2px; }
+  #list-layer-inner::-webkit-scrollbar { width: 4px; }
+  #list-layer-inner::-webkit-scrollbar-track { background: transparent; }
+  #list-layer-inner::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 2px; }
 
   /* Responsive */
   @media (max-width: 480px) {
     #focus-task { padding: 32px 20px; }
-    #list-layer { padding: 48px 16px 32px; }
+    #list-layer-inner { padding: 48px 16px 32px; }
     .list-item { padding: 14px 14px; }
   }
 </style>
@@ -345,13 +379,15 @@
 
 <!-- List layer -->
 <div id="list-layer" class="layer">
-  <div id="list-header">
+  <div id="list-layer-inner">
+    <div id="list-header">
     <h2>Tasks</h2>
     <span class="count" id="list-count"></span>
   </div>
   <ul id="task-list"></ul>
   <div id="add-task-area">
     <input id="new-task-input" type="text" placeholder="Add a task..." autocomplete="off">
+  </div>
   </div>
 </div>
 
@@ -587,45 +623,7 @@ function showFocus() {
 
 // ========== BACKGROUND HUE ==========
 function updateBackground() {
-  const h = new Date().getHours();
-  let hue, sat, light;
-  if (h < 6) {
-    // Deep night
-    hue = 240; sat = 10; light = 8;
-  } else if (h < 8) {
-    // Sunrise — warm
-    const t = (h - 6) / 2;
-    hue = 30 + t * 10;
-    sat = 12 + t * 5;
-    light = 12 + t * 15;
-  } else if (h < 12) {
-    // Morning — neutral warm
-    hue = 40; sat = 8; light = 38;
-  } else if (h < 17) {
-    // Midday — cool
-    hue = 45; sat = 6; light = 42;
-  } else if (h < 20) {
-    // Sunset — warm
-    const t = (h - 17) / 3;
-    hue = 30 - t * 10;
-    sat = 10 + t * 5;
-    light = 38 - t * 15;
-  } else {
-    // Evening — warm dim
-    const t = (h - 20) / 4;
-    hue = 25; sat = 10 + t * 5;
-    light = 25 - t * 12;
-  }
-  sat = Math.round(sat);
-  light = Math.min(48, Math.max(6, Math.round(light)));
-  document.body.style.background = `hsl(${hue}, ${sat}%, ${light}%)`;
-
-  // Adjust fg/muted for readability
-  const isDark = light < 30;
-  document.documentElement.style.setProperty('--fg', isDark ? '#e8e4de' : '#2c2826');
-  document.documentElement.style.setProperty('--muted', isDark ? '#8a847a' : '#b0a89e');
-  document.documentElement.style.setProperty('--faint', isDark ? '#3a3632' : '#ddd8d0');
-  document.documentElement.style.setProperty('--bg', `hsl(${hue}, ${sat}%, ${light}%)`);
+  // Static dark glass — no time-of-day changes needed
 }
 
 // ========== INPUT ==========
