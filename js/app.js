@@ -1,7 +1,7 @@
 import { getNextTheme, applyTheme } from './themes.js';
 import { workspaces, wsCurrentIndex, currentWsIndex, wsCount, loadData, saveData } from './data.js';
 import {
-  renderCarousel, renderDots, renderAllSlides,
+  renderCarousel, renderDots,
   completeCurrent, switchToWorkspace, keyboardHint,
 } from './ui.js';
 import { initGestures } from './gestures.js';
@@ -38,13 +38,6 @@ document.addEventListener('keydown', (e) => {
     console.error('keyboard handler error:', err);
   }
 });
-
-// Close theme pickers on outside click
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('#theme-picker') && !e.target.closest('.ws-label')) {
-    document.querySelectorAll('#theme-picker.open').forEach(p => p.classList.remove('open'));
-  }
-}, true);
 
 // ========== INIT ==========
 loadData();

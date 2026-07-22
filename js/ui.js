@@ -3,7 +3,7 @@ import {
   isAnimating, setIsAnimating, saveData, getCurrentTask,
   currentTaskIndex, setCurrentTaskIndex, setActiveWs,
 } from './data.js';
-import { applyTheme, findThemeById, THEMES } from './themes.js';
+import { getNextTheme, applyTheme, findThemeById, THEMES } from './themes.js';
 
 // ========== DOM REFS ==========
 export const focusTrack = document.getElementById('focus-track');
@@ -11,6 +11,11 @@ export const checkBurst = document.getElementById('check-burst');
 export const wsDots = document.getElementById('ws-dots');
 export const keyboardHint = document.getElementById('keyboard-hint');
 export const carousel = document.getElementById('focus-carousel');
+
+const settingsLayer = document.getElementById('settings-layer');
+const settingsSheet = settingsLayer.querySelector('.settings-sheet');
+
+const GEAR_SVG = `<svg class="ws-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
 
 // ========== BUILD SLIDES ==========
 
@@ -27,47 +32,21 @@ export function renderCarousel() {
 
     const label = document.createElement('div');
     label.className = 'ws-label';
-    label.textContent = ws.name;
+    label.innerHTML = `${ws.name} ${GEAR_SVG}`;
 
-    // Theme picker
-    const picker = document.createElement('div');
-    picker.id = 'theme-picker';
-    THEMES.forEach(t => {
-      const s = document.createElement('div');
-      s.className = 'theme-swatch' + (ws.theme?.id === t.id ? ' selected' : '');
-      s.style.background = t.accent;
-      s.dataset.themeId = t.id;
-      picker.appendChild(s);
+    label.querySelector('.ws-gear').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openSettings(wi);
     });
+
     focusedArea.appendChild(label);
-    focusedArea.appendChild(picker);
-
-    label.addEventListener('click', (e) => {
-      e.stopPropagation();
-      document.querySelectorAll('#theme-picker.open').forEach(p => {
-        if (p !== picker) p.classList.remove('open');
-      });
-      picker.classList.toggle('open');
-    });
-
-    picker.addEventListener('click', (e) => {
-      const s = e.target.closest('.theme-swatch');
-      if (!s) return;
-      e.stopPropagation();
-      const themeId = s.dataset.themeId;
-      workspaces[wi].theme = { ...findThemeById(themeId) };
-      saveData();
-      if (wi === activeWs) applyTheme(workspaces[wi].theme);
-      picker.querySelectorAll('.theme-swatch').forEach(el => el.classList.remove('selected'));
-      s.classList.add('selected');
-      picker.classList.remove('open');
-    });
 
     const focusedText = document.createElement('div');
     focusedText.className = 'focused-text';
     focusedArea.appendChild(focusedText);
 
-    focusedArea.addEventListener('click', () => {
+    focusedArea.addEventListener('click', (e) => {
+      if (e.target.closest('.ws-gear')) return;
       if (wi === activeWs) completeCurrent();
     });
 
@@ -117,6 +96,123 @@ export function renderCarousel() {
   renderAllSlides();
 }
 
+// ========== SETTINGS SHEET ==========
+
+function openSettings(wi) {
+  const ws = workspaces[wi];
+  if (!ws) return;
+
+  settingsSheet.innerHTML = `
+    <div class="settings-header">
+      <h3>Settings</h3>
+      <button class="settings-close">×</button>
+    </div>
+    <div class="settings-section">
+      <label class="settings-label">Name</label>
+      <input class="settings-name-input" type="text" value="${escapeHtml(ws.name)}" autocomplete="off">
+    </div>
+    <div class="settings-section">
+      <label class="settings-label">Theme</label>
+      <div class="settings-themes">
+        ${THEMES.map(t => `<div class="theme-swatch${ws.theme?.id === t.id ? ' selected' : ''}" style="background:${t.accent}" data-theme-id="${t.id}"></div>`).join('')}
+      </div>
+    </div>
+    <div class="settings-section">
+      <button class="settings-delete">Delete workspace</button>
+    </div>`;
+
+  // Close button
+  settingsSheet.querySelector('.settings-close').addEventListener('click', closeSettings);
+
+  // Rename on blur / enter
+  const nameInput = settingsSheet.querySelector('.settings-name-input');
+  nameInput.focus();
+  nameInput.setSelectionRange(nameInput.value.length, nameInput.value.length);
+  nameInput.addEventListener('blur', () => renameWs(wi, nameInput.value));
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') nameInput.blur();
+    if (e.key === 'Escape') closeSettings();
+  });
+
+  // Theme swatches
+  settingsSheet.querySelectorAll('.settings-themes .theme-swatch').forEach(el => {
+    el.addEventListener('click', () => {
+      const themeId = el.dataset.themeId;
+      ws.theme = { ...findThemeById(themeId) };
+      saveData();
+      if (wi === activeWs) applyTheme(ws.theme);
+      settingsSheet.querySelectorAll('.settings-themes .theme-swatch')
+        .forEach(s => s.classList.remove('selected'));
+      el.classList.add('selected');
+      // Update label
+      const slide = focusTrack.children[wi];
+      if (slide) slide.querySelector('.ws-label').childNodes[0].textContent = ws.name + ' ';
+    });
+  });
+
+  // Delete
+  settingsSheet.querySelector('.settings-delete').addEventListener('click', () => {
+    if (workspaces.length <= 1) return;
+    if (!confirm(`Delete "${ws.name}" and all its tasks?`)) return;
+    const removedIdx = wi;
+    workspaces.splice(removedIdx, 1);
+    let newActive = activeWs;
+    if (activeWs >= workspaces.length) newActive = workspaces.length - 1;
+    else if (activeWs === removedIdx) newActive = Math.min(removedIdx, workspaces.length - 1);
+    setActiveWs(newActive);
+    if (workspaces.length > 0) applyTheme(workspaces[newActive].theme);
+    saveData();
+    closeSettings();
+    renderCarousel();
+    renderDots();
+  });
+
+  settingsLayer.classList.add('open');
+}
+
+function renameWs(wi, name) {
+  const n = name.trim();
+  if (!n) return;
+  workspaces[wi].name = n;
+  saveData();
+  // Update slide label
+  const slide = focusTrack.children[wi];
+  if (slide) {
+    const label = slide.querySelector('.ws-label');
+    const gear = label.querySelector('.ws-gear');
+    label.innerHTML = `${n} ${GEAR_SVG}`;
+    label.querySelector('.ws-gear').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openSettings(wi);
+    });
+  }
+  // Update settings header
+  const h3 = settingsSheet.querySelector('.settings-header h3');
+  if (h3) h3.textContent = 'Settings';
+}
+
+function closeSettings() {
+  settingsLayer.classList.remove('open');
+}
+
+// Close on backdrop click
+settingsLayer.addEventListener('click', (e) => {
+  if (e.target === settingsLayer) closeSettings();
+});
+
+// Escape to close
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && settingsLayer.classList.contains('open')) {
+    closeSettings();
+  }
+});
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
 // ========== RENDER SLIDE CONTENT ==========
 
 function renderSlideContent(wi) {
@@ -142,7 +238,7 @@ function renderSlideContent(wi) {
   // Task cards
   const tasksContainer = slide.querySelector('.slide-tasks');
   tasksContainer.innerHTML = '';
-  ws.tasks.forEach((t, ti) => {
+  ws.tasks.forEach(t => {
     const card = document.createElement('div');
     card.className = 'slide-task';
     card.dataset.taskId = t.id;
@@ -157,7 +253,6 @@ function renderSlideContent(wi) {
     text.textContent = t.text;
     card.appendChild(text);
 
-    // Check toggle
     ring.addEventListener('click', (e) => {
       e.stopPropagation();
       if (isAnimating) return;
@@ -167,7 +262,6 @@ function renderSlideContent(wi) {
       renderDots();
     });
 
-    // Focus this task (only for active tasks)
     card.addEventListener('click', () => {
       if (t.done) return;
       if (isAnimating) return;
@@ -199,6 +293,25 @@ export function renderDots() {
   });
 }
 
+// ========== ADD WORKSPACE ==========
+
+document.getElementById('ws-add').addEventListener('click', () => {
+  let name = 'New';
+  let i = 1;
+  while (workspaces.some(ws => ws.name === name)) {
+    i++;
+    name = `New ${i}`;
+  }
+  workspaces.push({
+    id: 'ws' + Date.now(),
+    name,
+    tasks: [{ id: String(Date.now()), text: 'Configure this workspace', done: false }],
+    theme: { ...getNextTheme() },
+  });
+  renderCarousel();
+  switchToWorkspace(workspaces.length - 1);
+});
+
 // ========== CAROUSEL ==========
 
 export function getCurrentSlideEl() {
@@ -217,6 +330,7 @@ export function snapTrack(animate = true) {
 
 export function switchToWorkspace(i) {
   if (i < 0 || i >= workspaces.length) return;
+  closeSettings();
   setActiveWs(i);
   saveData();
   snapTrack();
@@ -243,14 +357,7 @@ export function completeCurrent() {
   setTimeout(() => {
     task.done = true;
     saveData();
-
-    const active = activeTasks();
-    if (active.length > 0 && currentTaskIndex() < active.length) {
-      // Text will update in place (no animation if same index)
-      renderAllSlides();
-    } else {
-      renderAllSlides();
-    }
+    renderAllSlides();
 
     setTimeout(() => {
       setIsAnimating(false);
