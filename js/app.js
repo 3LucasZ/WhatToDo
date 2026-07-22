@@ -1,63 +1,50 @@
 import { getNextTheme, applyTheme } from './themes.js';
-import { workspaces, wsCurrentIndex, showingList, currentWsIndex, wsCount, loadData, saveData } from './data.js';
+import { workspaces, wsCurrentIndex, currentWsIndex, wsCount, loadData, saveData } from './data.js';
 import {
-  renderCarousel, renderDots, renderList,
-  showFocus, showList, completeCurrent,
-  switchToWorkspace, newTaskInput, keyboardHint,
+  renderCarousel, renderDots, renderAllSlides,
+  completeCurrent, switchToWorkspace, keyboardHint,
 } from './ui.js';
 import { initGestures } from './gestures.js';
-
-// ========== KEYBOARD ==========
-newTaskInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && newTaskInput.value.trim()) {
-    const text = newTaskInput.value.trim();
-    const ts = workspaces[currentWsIndex()]?.tasks ?? [];
-    ts.push({ id: String(Date.now()), text, done: false });
-    newTaskInput.value = '';
-    saveData();
-    renderList();
-  }
-  if (e.key === 'Escape') {
-    showFocus();
-  }
-});
+import { config } from './config.js';
 
 document.addEventListener('keydown', (e) => {
   try {
-    if (document.activeElement === newTaskInput) return;
+    if (document.activeElement?.tagName === 'INPUT') return;
 
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
-      if (showingList) showFocus();
-      else completeCurrent();
-      return;
-    }
-    if (e.key === 'ArrowDown' || e.key === 'j') {
-      e.preventDefault();
-      showList();
-      return;
-    }
-    if (e.key === 'Escape' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      showFocus();
+      completeCurrent();
       return;
     }
     if (e.key === 'ArrowLeft') {
-      if (showingList) return;
       e.preventDefault();
-      if (currentWsIndex() > 0) switchToWorkspace(currentWsIndex() - 1);
+      const idx = currentWsIndex();
+      const target = config.circularWorkspaces
+        ? (idx - 1 + wsCount()) % wsCount()
+        : Math.max(0, idx - 1);
+      if (target !== idx) switchToWorkspace(target);
       return;
     }
     if (e.key === 'ArrowRight') {
-      if (showingList) return;
       e.preventDefault();
-      if (currentWsIndex() < wsCount() - 1) switchToWorkspace(currentWsIndex() + 1);
+      const idx = currentWsIndex();
+      const target = config.circularWorkspaces
+        ? (idx + 1) % wsCount()
+        : Math.min(wsCount() - 1, idx + 1);
+      if (target !== idx) switchToWorkspace(target);
       return;
     }
   } catch (err) {
     console.error('keyboard handler error:', err);
   }
 });
+
+// Close theme pickers on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#theme-picker') && !e.target.closest('.ws-label')) {
+    document.querySelectorAll('#theme-picker.open').forEach(p => p.classList.remove('open'));
+  }
+}, true);
 
 // ========== INIT ==========
 loadData();
@@ -67,9 +54,8 @@ workspaces.forEach(ws => {
 });
 renderCarousel();
 renderDots();
-renderList();
 applyTheme(workspaces[currentWsIndex()].theme);
-keyboardHint.classList.remove('hidden');
+requestAnimationFrame(() => keyboardHint.classList.add('show'));
 initGestures();
 
 window.addEventListener('beforeunload', saveData);

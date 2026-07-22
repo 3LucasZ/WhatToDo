@@ -5,10 +5,8 @@ const STORAGE_KEY = 'whattodo_data_v2';
 export let workspaces = [];
 export let activeWs = 0;
 export let wsCurrentIndex = {};
-export let showingList = false;
 export let isAnimating = false;
 
-export function setShowingList(v) { showingList = v; }
 export function setIsAnimating(v) { isAnimating = v; }
 export function setActiveWs(i) { activeWs = i; }
 
@@ -28,7 +26,6 @@ export function loadData() {
     }
   } catch (_) {}
 
-  // Try legacy v1 format
   try {
     const old = localStorage.getItem('whattodo_tasks');
     if (old) {
@@ -43,7 +40,6 @@ export function loadData() {
     }
   } catch (_) {}
 
-  // Default
   workspaces = [
     {
       id: 'ws1', name: 'Personal', tasks: [

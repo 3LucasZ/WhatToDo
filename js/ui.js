@@ -1,25 +1,18 @@
 import {
-  workspaces, activeWs, wsCurrentIndex, tasks,
-  activeTasks, currentTaskIndex, setCurrentTaskIndex,
-  showingList, setShowingList, isAnimating, setIsAnimating,
-  saveData, getCurrentTask, setActiveWs,
+  workspaces, activeWs, wsCurrentIndex, activeTasks,
+  isAnimating, setIsAnimating, saveData, getCurrentTask,
+  currentTaskIndex, setCurrentTaskIndex, setActiveWs,
 } from './data.js';
-import { getNextTheme, applyTheme } from './themes.js';
+import { applyTheme, findThemeById, THEMES } from './themes.js';
 
 // ========== DOM REFS ==========
-export const focusLayer = document.getElementById('focus-layer');
 export const focusTrack = document.getElementById('focus-track');
-export const listLayer = document.getElementById('list-layer');
-export const taskListEl = document.getElementById('task-list');
-export const listCount = document.getElementById('list-count');
-export const newTaskInput = document.getElementById('new-task-input');
-export const keyboardHint = document.getElementById('keyboard-hint');
 export const checkBurst = document.getElementById('check-burst');
 export const wsDots = document.getElementById('ws-dots');
-export const wsTabs = document.getElementById('ws-tabs');
+export const keyboardHint = document.getElementById('keyboard-hint');
 export const carousel = document.getElementById('focus-carousel');
 
-// ========== RENDER ==========
+// ========== BUILD SLIDES ==========
 
 export function renderCarousel() {
   focusTrack.innerHTML = '';
@@ -28,123 +21,172 @@ export function renderCarousel() {
     slide.className = 'focus-slide';
     slide.dataset.ws = wi;
 
-    const inner = document.createElement('div');
-    inner.id = 'focus-task';
+    // --- Focused task area ---
+    const focusedArea = document.createElement('div');
+    focusedArea.className = 'focused-area';
 
     const label = document.createElement('div');
     label.className = 'ws-label';
     label.textContent = ws.name;
-    inner.appendChild(label);
 
-    const hint = document.createElement('div');
-    hint.className = 'index-hint';
-    inner.appendChild(hint);
+    // Theme picker
+    const picker = document.createElement('div');
+    picker.id = 'theme-picker';
+    THEMES.forEach(t => {
+      const s = document.createElement('div');
+      s.className = 'theme-swatch' + (ws.theme?.id === t.id ? ' selected' : '');
+      s.style.background = t.accent;
+      s.dataset.themeId = t.id;
+      picker.appendChild(s);
+    });
+    focusedArea.appendChild(label);
+    focusedArea.appendChild(picker);
 
-    const text = document.createElement('div');
-    text.className = 'text';
-    inner.appendChild(text);
+    label.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('#theme-picker.open').forEach(p => {
+        if (p !== picker) p.classList.remove('open');
+      });
+      picker.classList.toggle('open');
+    });
 
-    slide.appendChild(inner);
+    picker.addEventListener('click', (e) => {
+      const s = e.target.closest('.theme-swatch');
+      if (!s) return;
+      e.stopPropagation();
+      const themeId = s.dataset.themeId;
+      workspaces[wi].theme = { ...findThemeById(themeId) };
+      saveData();
+      if (wi === activeWs) applyTheme(workspaces[wi].theme);
+      picker.querySelectorAll('.theme-swatch').forEach(el => el.classList.remove('selected'));
+      s.classList.add('selected');
+      picker.classList.remove('open');
+    });
 
-    const peek = document.createElement('div');
-    peek.id = 'peek-area';
-    slide.appendChild(peek);
+    const focusedText = document.createElement('div');
+    focusedText.className = 'focused-text';
+    focusedArea.appendChild(focusedText);
+
+    focusedArea.addEventListener('click', () => {
+      if (wi === activeWs) completeCurrent();
+    });
+
+    slide.appendChild(focusedArea);
+
+    // --- Divider ---
+    const divider = document.createElement('div');
+    divider.className = 'slide-divider';
+    const divLabel = document.createElement('span');
+    divLabel.className = 'slide-divider-label';
+    divLabel.textContent = 'Tasks';
+    divider.appendChild(divLabel);
+    slide.appendChild(divider);
+
+    // --- Task cards ---
+    const tasksContainer = document.createElement('div');
+    tasksContainer.className = 'slide-tasks';
+    slide.appendChild(tasksContainer);
+
+    // --- Add input ---
+    const addArea = document.createElement('div');
+    addArea.className = 'slide-add-area';
+    const addInput = document.createElement('input');
+    addInput.className = 'slide-add-input';
+    addInput.type = 'text';
+    addInput.placeholder = 'Add a task...';
+    addInput.autocomplete = 'off';
+    addInput.dataset.ws = wi;
+    addArea.appendChild(addInput);
+    slide.appendChild(addArea);
+
+    addInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && addInput.value.trim()) {
+        const text = addInput.value.trim();
+        workspaces[wi].tasks.push({ id: String(Date.now()), text, done: false });
+        addInput.value = '';
+        saveData();
+        renderSlideContent(wi);
+        if (wi === activeWs) renderDots();
+      }
+    });
+
     focusTrack.appendChild(slide);
   });
 
-  focusTrack.addEventListener('click', (e) => {
-    const slide = e.target.closest('.focus-slide');
-    if (!slide) return;
-    const wi = parseInt(slide.dataset.ws);
-    if (wi !== activeWs) return;
-    completeCurrent();
-  });
-
   snapTrack(false);
-  updateSlideContent(false);
+  renderAllSlides();
 }
 
-export function getCurrentSlideEl() {
-  return focusTrack.children[activeWs];
-}
+// ========== RENDER SLIDE CONTENT ==========
 
-export function snapTrack(animate = true) {
-  if (animate) {
-    focusTrack.classList.remove('dragging');
+function renderSlideContent(wi) {
+  const ws = workspaces[wi];
+  if (!ws) return;
+  const slide = focusTrack.children[wi];
+  if (!slide) return;
+
+  // Focused text
+  const focusedText = slide.querySelector('.focused-text');
+  const active = ws.tasks.filter(t => !t.done);
+  const idx = wsCurrentIndex[ws.id] ?? 0;
+  const task = active[idx] ?? null;
+
+  if (!task || !active.length) {
+    focusedText.className = 'focused-text focused-empty';
+    focusedText.textContent = 'All done ✦';
   } else {
-    focusTrack.classList.add('dragging');
+    focusedText.textContent = task.text;
+    focusedText.className = 'focused-text';
   }
-  focusTrack.style.transform = `translateX(-${activeWs * 100}%)`;
-  if (!animate) {
-    void focusTrack.offsetWidth;
-    focusTrack.classList.remove('dragging');
-  }
+
+  // Task cards
+  const tasksContainer = slide.querySelector('.slide-tasks');
+  tasksContainer.innerHTML = '';
+  ws.tasks.forEach((t, ti) => {
+    const card = document.createElement('div');
+    card.className = 'slide-task';
+    card.dataset.taskId = t.id;
+
+    const ring = document.createElement('div');
+    ring.className = 'slide-task-ring' + (t.done ? ' done' : '');
+    ring.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="5,13 9,17 19,7"/></svg>';
+    card.appendChild(ring);
+
+    const text = document.createElement('span');
+    text.className = 'slide-task-text' + (t.done ? ' done' : '');
+    text.textContent = t.text;
+    card.appendChild(text);
+
+    // Check toggle
+    ring.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isAnimating) return;
+      t.done = !t.done;
+      saveData();
+      renderSlideContent(wi);
+      renderDots();
+    });
+
+    // Focus this task (only for active tasks)
+    card.addEventListener('click', () => {
+      if (t.done) return;
+      if (isAnimating) return;
+      const wsActive = ws.tasks.filter(tt => !tt.done);
+      const targetIdx = wsActive.indexOf(t);
+      if (targetIdx >= 0) {
+        wsCurrentIndex[ws.id] = targetIdx;
+        saveData();
+        renderAllSlides();
+        if (wi === activeWs) renderDots();
+      }
+    });
+
+    tasksContainer.appendChild(card);
+  });
 }
 
-export function updateSlideContent() {
-  workspaces.forEach((ws, wi) => {
-    const slide = focusTrack.children[wi];
-    if (!slide) return;
-    const wsLabel = slide.querySelector('.ws-label');
-    const hint = slide.querySelector('.index-hint');
-    const text = slide.querySelector('.text');
-    const peekArea = slide.querySelector('#peek-area');
-
-    wsLabel.textContent = ws.name;
-
-    const active = ws.tasks.filter(t => !t.done);
-    const idx = wsCurrentIndex[ws.id] ?? 0;
-    const task = active[idx] ?? null;
-
-    if (!task || !active.length) {
-      hint.textContent = '';
-      text.className = 'text empty-message';
-      text.textContent = 'All done ✦';
-    } else {
-      hint.textContent = ws.id === workspaces[activeWs].id
-        ? `${idx + 1} of ${active.length} remaining`
-        : `${active.length} remaining`;
-      text.textContent = task.text;
-      text.className = 'text';
-    }
-
-    // Peek cards — show upcoming tasks (max 2)
-    peekArea.innerHTML = '';
-    const isActiveWs = ws.id === workspaces[activeWs].id;
-    if (active.length > 0 && idx < active.length - 1) {
-      const upcoming = active.slice(idx + 1, idx + 3);
-      upcoming.forEach((ut, ui) => {
-        const card = document.createElement('div');
-        card.className = 'peek-card';
-
-        const num = document.createElement('span');
-        num.className = 'peek-num';
-        num.textContent = `${idx + ui + 2}`;
-        card.appendChild(num);
-
-        const txt = document.createElement('span');
-        txt.className = 'peek-text';
-        txt.textContent = ut.text;
-        card.appendChild(txt);
-
-        if (isActiveWs) {
-          card.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (isAnimating) return;
-            const wsActive = ws.tasks.filter(t => !t.done);
-            const targetIdx = wsActive.indexOf(ut);
-            if (targetIdx >= 0) {
-              wsCurrentIndex[ws.id] = targetIdx;
-              saveData();
-              updateSlideContent();
-            }
-          });
-        }
-        peekArea.appendChild(card);
-      });
-    }
-  });
-
+export function renderAllSlides() {
+  workspaces.forEach((_, wi) => renderSlideContent(wi));
   renderDots();
 }
 
@@ -157,109 +199,20 @@ export function renderDots() {
   });
 }
 
-export function renderList() {
-  taskListEl.innerHTML = '';
-  const ts = tasks();
-  ts.forEach((t, i) => {
-    const li = document.createElement('li');
-    li.className = 'list-item';
-    li.dataset.id = t.id;
+// ========== CAROUSEL ==========
 
-    const handle = document.createElement('div');
-    handle.className = 'drag-handle';
-    li.appendChild(handle);
-
-    const idx = document.createElement('span');
-    idx.className = 'idx';
-    idx.textContent = `${i + 1}`;
-    li.appendChild(idx);
-
-    const ring = document.createElement('div');
-    ring.className = 'check-ring' + (t.done ? ' filled' : '');
-    ring.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="5,13 9,17 19,7"/></svg>';
-    li.appendChild(ring);
-
-    const label = document.createElement('span');
-    label.className = 'label' + (t.done ? ' done' : '');
-    label.textContent = t.text;
-    li.appendChild(label);
-
-    li.addEventListener('click', (e) => {
-      if (e.target.closest('.drag-handle')) return;
-      if (isAnimating) return;
-      t.done = !t.done;
-      saveData();
-      renderList();
-      syncAfterListChange();
-    });
-
-    let pressTimer = null;
-    li.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.drag-handle')) return;
-      pressTimer = setTimeout(() => {
-        pressTimer = null;
-        if (t.done) return;
-        const active = activeTasks();
-        const idx = active.indexOf(t);
-        if (idx >= 0) {
-          setCurrentTaskIndex(idx);
-          showFocus();
-        }
-      }, 400);
-    });
-    li.addEventListener('pointerup', () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
-    li.addEventListener('pointercancel', () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
-    li.addEventListener('pointerleave', () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
-
-    taskListEl.appendChild(li);
-  });
-
-  const done = ts.filter(t => t.done).length;
-  listCount.textContent = `${done}/${ts.length} done`;
-  updateListHeader();
+export function getCurrentSlideEl() {
+  return focusTrack.children[activeWs];
 }
 
-export function updateListHeader() {
-  const remaining = tasks().filter(t => !t.done).length;
-  const h2 = document.querySelector('#list-header h2');
-  h2.textContent = remaining ? `${remaining} task${remaining !== 1 ? 's' : ''} remaining` : 'All done';
-}
-
-export function renderWsTabs() {
-  wsTabs.innerHTML = '';
-  workspaces.forEach((ws, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'ws-tab' + (i === activeWs ? ' active' : '');
-    btn.textContent = ws.name;
-    btn.addEventListener('click', () => {
-      if (i === activeWs) return;
-      switchToWorkspace(i);
-      renderList();
-      renderWsTabs();
-    });
-    wsTabs.appendChild(btn);
-  });
-
-  const addBtn = document.createElement('button');
-  addBtn.className = 'ws-tab-add';
-  addBtn.textContent = '+';
-  addBtn.addEventListener('click', () => {
-    const name = prompt('Workspace name:');
-    if (name && name.trim()) {
-      workspaces.push({
-        id: 'ws' + Date.now(),
-        name: name.trim(),
-        tasks: [],
-        theme: { ...getNextTheme() },
-      });
-      switchToWorkspace(workspaces.length - 1);
-      renderCarousel();
-      renderWsTabs();
-      renderList();
-      saveData();
-    }
-  });
-  wsTabs.appendChild(addBtn);
+export function snapTrack(animate = true) {
+  if (animate) focusTrack.classList.remove('dragging');
+  else focusTrack.classList.add('dragging');
+  focusTrack.style.transform = `translateX(-${activeWs * 100}%)`;
+  if (!animate) {
+    void focusTrack.offsetWidth;
+    focusTrack.classList.remove('dragging');
+  }
 }
 
 export function switchToWorkspace(i) {
@@ -268,15 +221,7 @@ export function switchToWorkspace(i) {
   saveData();
   snapTrack();
   applyTheme(workspaces[i].theme);
-  updateSlideContent();
-}
-
-function syncAfterListChange() {
-  const active = activeTasks();
-  const idx = currentTaskIndex();
-  if (active.length === 0) { setCurrentTaskIndex(0); }
-  else if (idx >= active.length) { setCurrentTaskIndex(active.length - 1); }
-  updateSlideContent();
+  renderDots();
 }
 
 // ========== COMPLETE ==========
@@ -292,55 +237,23 @@ export function completeCurrent() {
   checkBurst.classList.add('animate');
 
   const slide = getCurrentSlideEl();
-  const text = slide.querySelector('.text');
-  if (text) text.className = 'text done-exit';
+  const text = slide.querySelector('.focused-text');
+  if (text) text.className = 'focused-text done-exit';
 
   setTimeout(() => {
     task.done = true;
     saveData();
-    renderList();
-    syncAfterListChange();
 
     const active = activeTasks();
     if (active.length > 0 && currentTaskIndex() < active.length) {
-      const slide2 = getCurrentSlideEl();
-      const text2 = slide2.querySelector('.text');
-      if (text2) {
-        text2.className = 'text done-enter';
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            updateSlideContent();
-          });
-        });
-      }
+      // Text will update in place (no animation if same index)
+      renderAllSlides();
     } else {
-      updateSlideContent();
+      renderAllSlides();
     }
 
     setTimeout(() => {
       setIsAnimating(false);
     }, 200);
   }, 300);
-}
-
-// ========== LIST SHOW/HIDE ==========
-export function showList() {
-  if (showingList) return;
-  setShowingList(true);
-  focusLayer.classList.add('obscured');
-  listLayer.classList.add('active');
-  keyboardHint.classList.add('hidden');
-  renderList();
-  renderWsTabs();
-  newTaskInput.focus();
-}
-
-export function showFocus() {
-  if (!showingList) return;
-  setShowingList(false);
-  focusLayer.classList.remove('obscured');
-  listLayer.classList.remove('active');
-  updateSlideContent();
-  keyboardHint.classList.remove('hidden');
-  newTaskInput.blur();
 }

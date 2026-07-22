@@ -96,6 +96,10 @@ export function getNextTheme() {
 export function getThemeIndex() { return _themeIndex; }
 export function setThemeIndex(i) { _themeIndex = i; }
 
+export function findThemeById(id) {
+  return THEMES.find(t => t.id === id) || THEMES[0];
+}
+
 export function applyTheme(theme) {
   const r = document.documentElement;
   r.style.setProperty('--bg', theme.bg);

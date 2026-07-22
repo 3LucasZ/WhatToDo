@@ -15,7 +15,7 @@
   <svg viewBox="0 0 24 24"><polyline points="5,13 9,17 19,7"/></svg>
 </div>
 
-<!-- Focus layer -->
+<!-- Focus layer (now the only layer) -->
 <div id="focus-layer" class="layer active">
   <div id="focus-carousel">
     <div id="focus-track"></div>
@@ -25,24 +25,9 @@
 <!-- Workspace dots -->
 <div id="ws-dots"></div>
 
-<!-- List layer -->
-<div id="list-layer" class="layer">
-  <div id="list-layer-inner">
-    <div id="ws-tabs"></div>
-    <div id="list-header">
-    <h2>Tasks</h2>
-    <span class="count" id="list-count"></span>
-  </div>
-  <ul id="task-list"></ul>
-  <div id="add-task-area">
-    <input id="new-task-input" type="text" placeholder="Add a task..." autocomplete="off">
-  </div>
-  </div>
-</div>
-
 <!-- Keyboard hint -->
 <div id="keyboard-hint">
-  <kbd>Space</kbd> complete · <kbd>↓</kbd> list · <kbd>←</kbd><kbd>→</kbd> workspaces
+  <kbd>Space</kbd> complete · <kbd>←</kbd><kbd>→</kbd> workspaces
 </div>
 
 <script type="module" src="js/app.js"></script>
