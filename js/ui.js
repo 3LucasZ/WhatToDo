@@ -2,7 +2,7 @@ import {
   workspaces, activeWs, wsCurrentIndex, tasks,
   activeTasks, currentTaskIndex, setCurrentTaskIndex,
   showingList, setShowingList, isAnimating, setIsAnimating,
-  saveData, getCurrentTask,
+  saveData, getCurrentTask, setActiveWs,
 } from './data.js';
 import { getNextTheme, applyTheme } from './themes.js';
 
@@ -45,6 +45,10 @@ export function renderCarousel() {
     inner.appendChild(text);
 
     slide.appendChild(inner);
+
+    const peek = document.createElement('div');
+    peek.id = 'peek-area';
+    slide.appendChild(peek);
     focusTrack.appendChild(slide);
   });
 
@@ -84,6 +88,7 @@ export function updateSlideContent() {
     const wsLabel = slide.querySelector('.ws-label');
     const hint = slide.querySelector('.index-hint');
     const text = slide.querySelector('.text');
+    const peekArea = slide.querySelector('#peek-area');
 
     wsLabel.textContent = ws.name;
 
@@ -101,6 +106,42 @@ export function updateSlideContent() {
         : `${active.length} remaining`;
       text.textContent = task.text;
       text.className = 'text';
+    }
+
+    // Peek cards — show upcoming tasks (max 2)
+    peekArea.innerHTML = '';
+    const isActiveWs = ws.id === workspaces[activeWs].id;
+    if (active.length > 0 && idx < active.length - 1) {
+      const upcoming = active.slice(idx + 1, idx + 3);
+      upcoming.forEach((ut, ui) => {
+        const card = document.createElement('div');
+        card.className = 'peek-card';
+
+        const num = document.createElement('span');
+        num.className = 'peek-num';
+        num.textContent = `${idx + ui + 2}`;
+        card.appendChild(num);
+
+        const txt = document.createElement('span');
+        txt.className = 'peek-text';
+        txt.textContent = ut.text;
+        card.appendChild(txt);
+
+        if (isActiveWs) {
+          card.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (isAnimating) return;
+            const wsActive = ws.tasks.filter(t => !t.done);
+            const targetIdx = wsActive.indexOf(ut);
+            if (targetIdx >= 0) {
+              wsCurrentIndex[ws.id] = targetIdx;
+              saveData();
+              updateSlideContent();
+            }
+          });
+        }
+        peekArea.appendChild(card);
+      });
     }
   });
 
@@ -223,7 +264,7 @@ export function renderWsTabs() {
 
 export function switchToWorkspace(i) {
   if (i < 0 || i >= workspaces.length) return;
-  activeWs = i;
+  setActiveWs(i);
   saveData();
   snapTrack();
   applyTheme(workspaces[i].theme);

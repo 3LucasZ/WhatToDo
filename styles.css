@@ -65,7 +65,8 @@ body {
   width: 100%;
   overflow: hidden;
   position: relative;
-  touch-action: none;
+  touch-action: pan-y;
+  overscroll-behavior: none;
 }
 #focus-track {
   display: flex;
@@ -78,6 +79,7 @@ body {
 .focus-slide {
   min-width: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 48px 40px;
@@ -131,6 +133,60 @@ body {
   font-size: clamp(24px, 4vw, 40px);
   font-weight: 500;
   color: var(--muted);
+}
+
+/* Peek cards */
+#peek-area {
+  max-width: 360px;
+  width: 100%;
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.peek-card {
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: background var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0.55;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.peek-card:first-child {
+  opacity: 0.75;
+}
+.peek-card:hover {
+  background: var(--glass-hover);
+  opacity: 0.95;
+  transform: scale(1.02);
+}
+.peek-card:active {
+  transform: scale(0.98);
+}
+.peek-card .peek-num {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  width: 16px;
+  text-align: right;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.peek-card .peek-text {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 1.3;
+  color: var(--fg);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Workspace dots */
@@ -462,4 +518,6 @@ body {
   .focus-slide { padding: 32px 20px; }
   #list-layer-inner { padding: 48px 16px 32px; }
   .list-item { padding: 14px 14px; }
+  #peek-area { margin-top: 24px; }
+  .peek-card { padding: 8px 12px; }
 }

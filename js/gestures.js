@@ -5,29 +5,47 @@ let gestureStartX = 0;
 let gestureStartY = 0;
 let gestureLockH = false;
 let gestureLockV = false;
+let activePointerId = null;
 
 const SWIPE_THRESHOLD = 80;
 
 export function initGestures() {
+  // Only respond to actual touch input. Trackpad two-finger swipes fire
+  // pointerType:'mouse' and conflict with the browser's native gesture —
+  // we ignore those and let users navigate with ← → arrow keys on desktop.
   carousel.addEventListener('pointerdown', onPointerDown);
   carousel.addEventListener('pointermove', onPointerMove);
   carousel.addEventListener('pointerup', onPointerUp);
+  carousel.addEventListener('pointercancel', onPointerCancel);
 
-  // Touch swipe-down for list (fallback for non-carousel areas)
+  // Vertical swipe-down to show list (touch only via TouchEvents API)
   let touchStartY = 0;
   document.addEventListener('touchstart', (e) => {
     if (showingList) return;
+    if (e.touches.length > 1) return; // ignore multi-touch
     touchStartY = e.changedTouches[0].screenY;
   }, { passive: true });
   document.addEventListener('touchmove', (e) => {
     if (showingList) return;
+    if (e.touches.length > 1) return;
     const dy = e.changedTouches[0].screenY - touchStartY;
     if (dy > 50) showList();
   }, { passive: true });
 }
 
+function isTouchPointer(e) {
+  return e.pointerType === 'touch';
+}
+
 function onPointerDown(e) {
+  // Ignore mouse/trackpad/pen — only touch swipes
+  if (!isTouchPointer(e)) return;
+  // Ignore multi-touch (e.g. pinch while swiping)
+  if (e.isPrimary === false) return;
+
   if (showingList || isAnimating) return;
+
+  activePointerId = e.pointerId;
   gestureStartX = e.clientX;
   gestureStartY = e.clientY;
   gestureLockH = false;
@@ -36,6 +54,8 @@ function onPointerDown(e) {
 }
 
 function onPointerMove(e) {
+  if (!isTouchPointer(e)) return;
+  if (e.pointerId !== activePointerId) return;
   if (showingList || isAnimating) return;
 
   const dx = e.clientX - gestureStartX;
@@ -53,6 +73,7 @@ function onPointerMove(e) {
   if (gestureLockV) {
     if (dy > 30) {
       carousel.releasePointerCapture(e.pointerId);
+      activePointerId = null;
       showList();
     }
     return;
@@ -74,6 +95,11 @@ function onPointerMove(e) {
 }
 
 function onPointerUp(e) {
+  if (!isTouchPointer(e)) return;
+  if (e.pointerId !== activePointerId) return;
+
+  activePointerId = null;
+
   if (showingList || isAnimating) return;
   if (!gestureLockH && !gestureLockV) return;
   if (gestureLockV) return;
@@ -90,5 +116,11 @@ function onPointerUp(e) {
     }
   } else {
     snapTrack();
+  }
+}
+
+function onPointerCancel(e) {
+  if (e.pointerId === activePointerId) {
+    activePointerId = null;
   }
 }

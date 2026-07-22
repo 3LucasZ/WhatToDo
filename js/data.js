@@ -81,6 +81,9 @@ export function saveData() {
   }));
 }
 
+export function currentWsIndex() { return activeWs; }
+export function wsCount() { return workspaces.length; }
+
 export function tasks() { return workspaces[activeWs]?.tasks ?? []; }
 
 export function activeTasks() { return tasks().filter(t => !t.done); }

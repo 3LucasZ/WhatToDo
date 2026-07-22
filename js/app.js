@@ -1,8 +1,8 @@
 import { getNextTheme, applyTheme } from './themes.js';
-import { workspaces, wsCurrentIndex, activeWs, loadData, saveData } from './data.js';
+import { workspaces, wsCurrentIndex, showingList, currentWsIndex, wsCount, loadData, saveData } from './data.js';
 import {
-  renderCarousel, renderDots, renderList, renderWsTabs,
-  showFocus, showList, completeCurrent, snapTrack, updateSlideContent,
+  renderCarousel, renderDots, renderList,
+  showFocus, showList, completeCurrent,
   switchToWorkspace, newTaskInput, keyboardHint,
 } from './ui.js';
 import { initGestures } from './gestures.js';
@@ -11,7 +11,7 @@ import { initGestures } from './gestures.js';
 newTaskInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && newTaskInput.value.trim()) {
     const text = newTaskInput.value.trim();
-    const ts = workspaces[activeWs]?.tasks ?? [];
+    const ts = workspaces[currentWsIndex()]?.tasks ?? [];
     ts.push({ id: String(Date.now()), text, done: false });
     newTaskInput.value = '';
     saveData();
@@ -23,32 +23,39 @@ newTaskInput.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (document.activeElement === newTaskInput) return;
+  try {
+    if (document.activeElement === newTaskInput) return;
 
-  if (e.key === ' ' || e.key === 'Enter') {
-    e.preventDefault();
-    if (showingList) showFocus();
-    else completeCurrent();
-  }
-  if (e.key === 'ArrowDown' || e.key === 'j') {
-    e.preventDefault();
-    showList();
-  }
-  if (e.key === 'Escape' || e.key === 'ArrowUp') {
-    e.preventDefault();
-    showFocus();
-  }
-  if (e.key === 'ArrowLeft') {
-    if (showingList) return;
-    e.preventDefault();
-    const target = activeWs - 1;
-    if (target >= 0) switchToWorkspace(target);
-  }
-  if (e.key === 'ArrowRight') {
-    if (showingList) return;
-    e.preventDefault();
-    const target = activeWs + 1;
-    if (target < workspaces.length) switchToWorkspace(target);
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      if (showingList) showFocus();
+      else completeCurrent();
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'j') {
+      e.preventDefault();
+      showList();
+      return;
+    }
+    if (e.key === 'Escape' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      showFocus();
+      return;
+    }
+    if (e.key === 'ArrowLeft') {
+      if (showingList) return;
+      e.preventDefault();
+      if (currentWsIndex() > 0) switchToWorkspace(currentWsIndex() - 1);
+      return;
+    }
+    if (e.key === 'ArrowRight') {
+      if (showingList) return;
+      e.preventDefault();
+      if (currentWsIndex() < wsCount() - 1) switchToWorkspace(currentWsIndex() + 1);
+      return;
+    }
+  } catch (err) {
+    console.error('keyboard handler error:', err);
   }
 });
 
@@ -61,7 +68,7 @@ workspaces.forEach(ws => {
 renderCarousel();
 renderDots();
 renderList();
-applyTheme(workspaces[activeWs].theme);
+applyTheme(workspaces[currentWsIndex()].theme);
 keyboardHint.classList.remove('hidden');
 initGestures();
 
