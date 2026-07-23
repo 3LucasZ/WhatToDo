@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>scatter — todo</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+  }
+
+  body {
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(180, 140, 100, 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 80%, rgba(140, 100, 70, 0.1) 0%, transparent 50%),
+      linear-gradient(160deg, #4a3728 0%, #5c4033 25%, #6b4c3b 50%, #5a3e2e 75%, #3f2c1f 100%);
+    background-attachment: fixed;
+  }
+
+  /* subtle wood grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 3px,
+      rgba(0,0,0,0.015) 3px,
+      rgba(0,0,0,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ambient light on the desk */
+  .desk {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+  }
+
+  /* ---- papers ---- */
+  .papers-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .paper {
+    position: absolute;
+    width: 220px;
+    min-height: 160px;
+    background: #fffbf5;
+    border-radius: 2px;
+    padding: 20px 22px 16px;
+    box-shadow:
+      0 1px 3px rgba(0,0,0,0.12),
+      0 4px 20px rgba(0,0,0,0.25),
+      inset 0 1px 0 rgba(255,255,255,0.6);
+    pointer-events: auto;
+    cursor: grab;
+    transition: box-shadow 0.15s, transform 0.08s;
+    font-size: 14px;
+    line-height: 1.55;
+    color: #2a2018;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  .paper:hover {
+    box-shadow:
+      0 2px 6px rgba(0,0,0,0.15),
+      0 8px 30px rgba(0,0,0,0.3);
+  }
+  .paper.dragging {
+    cursor: grabbing;
+    box-shadow:
+      0 8px 25px rgba(0,0,0,0.2),
+      0 20px 50px rgba(0,0,0,0.35);
+    z-index: 999 !important;
+    transition: box-shadow 0.15s, transform 0s;
+  }
+
+  /* paper header line (title) */
+  .paper-title {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    color: #1a1410;
+  }
+
+  /* checkbox */
+  .paper-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #b8a088;
+    border-radius: 3px;
+    margin-right: 8px;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 11px;
+    color: transparent;
+    background: rgba(255,255,245,0.5);
+    vertical-align: middle;
+  }
+  .paper-check:hover {
+    border-color: #7a5a3a;
+    background: rgba(200,170,140,0.15);
+  }
+  .paper.done .paper-check {
+    border-color: #8a9a6a;
+    background: #d4e0b0;
+    color: #4f6a30;
+  }
+  .paper.done .paper-title {
+    text-decoration: line-through;
+    color: #9a8a7a;
+  }
+  .paper.done .paper-body {
+    text-decoration: line-through;
+    color: #b8a898;
+  }
+
+  .paper-body {
+    padding-left: 26px;
+    margin-top: 2px;
+  }
+  .paper-body:empty { display: none; }
+
+  /* delete X */
+  .paper-delete {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    font-size: 16px;
+    color: #c0a898;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s;
+    line-height: 1;
+    font-family: serif;
+  }
+  .paper:hover .paper-delete { opacity: 1; }
+  .paper-delete:hover { color: #a04030; }
+
+  /* ---- add button ---- */
+  .add-btn {
+    position: fixed;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    border: none;
+    background: rgba(255,248,238,0.9);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #4a3528;
+    font-size: 28px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+    transition: all 0.15s;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .add-btn:hover {
+    background: rgba(255,248,238,1);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    transform: translateX(-50%) scale(1.05);
+  }
+  .add-btn:active {
+    transform: translateX(-50%) scale(0.95);
+  }
+
+  /* ---- modal ---- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .modal-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .modal {
+    background: #fffbf5;
+    border-radius: 6px;
+    padding: 28px 32px 24px;
+    width: 380px;
+    max-width: 90vw;
+    box-shadow: 0 16px 60px rgba(0,0,0,0.35);
+    transform: scale(0.95);
+    transition: transform 0.2s;
+  }
+  .modal-overlay.open .modal {
+    transform: scale(1);
+  }
+
+  .modal input,
+  .modal textarea {
+    display: block;
+    width: 100%;
+    border: 1px solid #d0c0b0;
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fffcf8;
+    color: #2a2018;
+    outline: none;
+    transition: border-color 0.12s;
+  }
+  .modal input:focus,
+  .modal textarea:focus {
+    border-color: #a08060;
+  }
+  .modal input { margin-bottom: 12px; }
+  .modal textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .modal-actions button {
+    border: none;
+    border-radius: 4px;
+    padding: 8px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.12s;
+  }
+  .modal-actions .btn-cancel {
+    background: transparent;
+    color: #6a5a4a;
+  }
+  .modal-actions .btn-cancel:hover {
+    background: rgba(0,0,0,0.05);
+  }
+  .modal-actions .btn-add {
+    background: #5c4033;
+    color: #fff;
+  }
+  .modal-actions .btn-add:hover {
+    background: #4a3025;
+  }
+
+  /* ---- stats --- */
+  .stats {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    font-size: 13px;
+    color: rgba(255,240,225,0.5);
+    background: rgba(0,0,0,0.2);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    padding: 6px 18px;
+    border-radius: 20px;
+    pointer-events: none;
+  }
+  .stats span { color: rgba(255,240,225,0.85); }
+
+  /* crumple animation */
+  @keyframes crumple {
+    0%   { transform: scale(1) rotate(var(--r)); opacity: 1; }
+    30%  { transform: scale(0.9) rotate(calc(var(--r) + 8deg)) translateY(6px); opacity: 0.9; }
+    100% { transform: scale(0.3) rotate(calc(var(--r) + 40deg)) translateY(80px); opacity: 0; }
+  }
+  .paper.crumpling {
+    animation: crumple 0.35s ease-in forwards;
+    pointer-events: none;
+  }
+
+  /* spawn-in animation */
+  @keyframes spawn {
+    0%   { transform: scale(0.5) rotate(0deg); opacity: 0; }
+    60%  { transform: scale(1.08) rotate(calc(var(--r) * 1.1)); opacity: 1; }
+    100% { transform: scale(1) rotate(var(--r)); opacity: 1; }
+  }
+  .paper.spawning {
+    animation: spawn 0.25s ease-out forwards;
+  }
+</style>
+</head>
+<body>
+
+<div class="desk"></div>
+<div class="papers-layer" id="papersLayer"></div>
+
+<button class="add-btn" id="addBtn">+</button>
+
+<div class="stats" id="stats">✧ <span id="taskCount">0</span></div>
+
+<!-- modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <input id="taskTitle" placeholder="what's this task?" autofocus maxlength="60">
+    <textarea id="taskBody" placeholder="notes... (optional)" maxlength="300"></textarea>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="modalCancel">cancel</button>
+      <button class="btn-add" id="modalAdd">add paper</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---- state ----
+  let papers = [];
+  let nextZ = 10;
+  let drag = null; // { el, startX, startY, origX, origY, rect }
+
+  function load() {
+    try { papers = JSON.parse(localStorage.getItem('scatter-todos')) || []; }
+    catch { papers = []; }
+  }
+  function save() {
+    localStorage.setItem('scatter-todos', JSON.stringify(papers.map(p => ({
+      id: p.id, title: p.title, body: p.body, done: p.done,
+      x: p.x, y: p.y, r: p.r,
+    }))));
+    render();
+  }
+
+  // ---- render ----
+  function render() {
+    const layer = document.getElementById('papersLayer');
+    layer.innerHTML = '';
+    const active = papers.filter(p => !p.done).length;
+    document.getElementById('taskCount').textContent = `${active} / ${papers.length}`;
+
+    // sort so done papers sit slightly lower (less prominent)
+    const sorted = [...papers].sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      return (a.z || 0) - (b.z || 0);
+    });
+
+    sorted.forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'paper' + (p.done ? ' done' : '');
+      el.style.left = p.x + 'px';
+      el.style.top = p.y + 'px';
+      el.style.setProperty('--r', p.r + 'deg');
+      el.style.transform = 'rotate(var(--r))';
+      el.style.zIndex = p.done ? 1 : (p.z || 1);
+      el.dataset.id = p.id;
+      el.innerHTML = `
+        <span class="paper-delete" data-action="delete">✕</span>
+        <div>
+          <span class="paper-check" data-action="toggle">✓</span>
+          <span class="paper-title">${esc(p.title)}</span>
+        </div>
+        ${p.body ? `<div class="paper-body">${esc(p.body)}</div>` : ''}
+      `;
+      layer.appendChild(el);
+
+      el.addEventListener('pointerdown', e => onPointerDown(e, el, p));
+    });
+  }
+
+  function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // ---- spawn a new paper at a random desk position ----
+  function spawnPaper(title, body) {
+    const ww = window.innerWidth, wh = window.innerHeight;
+    const pw = 220, ph = 160;
+    const margin = 20;
+    const x = Math.random() * (ww - pw - margin * 2) + margin;
+    const y = Math.random() * (wh - ph - margin * 2) + margin;
+    const r = (Math.random() - 0.5) * 12; // -6..+6 degrees
+
+    const p = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      title, body: body || '', done: false,
+      x, y, r, z: ++nextZ,
+    };
+    papers.push(p);
+    save();
+
+    // spawn animation on the DOM element
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`.paper[data-id="${p.id}"]`);
+      if (el) { el.classList.add('spawning'); }
+    });
+  }
+
+  // ---- add modal ----
+  const modalOverlay = document.getElementById('modalOverlay');
+  const taskTitle = document.getElementById('taskTitle');
+  const taskBody = document.getElementById('taskBody');
+
+  document.getElementById('addBtn').addEventListener('click', () => {
+    taskTitle.value = '';
+    taskBody.value = '';
+    modalOverlay.classList.add('open');
+    setTimeout(() => taskTitle.focus(), 100);
+  });
+
+  function closeModal() { modalOverlay.classList.remove('open'); }
+
+  document.getElementById('modalCancel').addEventListener('click', closeModal);
+  document.getElementById('modalAdd').addEventListener('click', () => {
+    const t = taskTitle.value.trim();
+    if (!t) return;
+    spawnPaper(t, taskBody.value.trim());
+    closeModal();
+  });
+
+  modalOverlay.addEventListener('click', e => {
+    if (e.target === modalOverlay) closeModal();
+  });
+
+  taskTitle.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const t = taskTitle.value.trim();
+      if (!t) return;
+      spawnPaper(t, taskBody.value.trim());
+      closeModal();
+    }
+  });
+
+  // ---- click / toggle / delete (delegated) ----
+  document.getElementById('papersLayer').addEventListener('click', e => {
+    const action = e.target.dataset.action;
+    if (!action) return;
+    const paperEl = e.target.closest('.paper');
+    if (!paperEl) return;
+    const p = papers.find(p => p.id === paperEl.dataset.id);
+    if (!p) return;
+
+    if (action === 'toggle') {
+      p.done = !p.done;
+      save();
+    } else if (action === 'delete') {
+      // crumple animation then remove
+      paperEl.classList.add('crumpling');
+      const id = p.id;
+      paperEl.addEventListener('animationend', () => {
+        papers = papers.filter(pp => pp.id !== id);
+        save();
+      }, { once: true });
+    }
+  });
+
+  // ---- drag ----
+  function onPointerDown(e, el, p) {
+    if (e.target.dataset.action) return; // ignore clicks on checkbox/delete
+    if (drag) return;
+
+    // bring to top
+    p.z = ++nextZ;
+    el.style.zIndex = p.z;
+    el.classList.add('dragging');
+
+    const rect = el.getBoundingClientRect();
+    drag = {
+      el, p,
+      startX: e.clientX, startY: e.clientY,
+      origX: p.x, origY: p.y,
+      rect,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+    };
+
+    el.setPointerCapture(e.pointerId);
+  }
+
+  document.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    drag.p.x = drag.origX + dx;
+    drag.p.y = drag.origY + dy;
+    drag.el.style.left = drag.p.x + 'px';
+    drag.el.style.top = drag.p.y + 'px';
+  });
+
+  document.addEventListener('pointerup', () => {
+    if (!drag) return;
+    drag.el.classList.remove('dragging');
+    save();
+    drag = null;
+  });
+
+  // ---- init ----
+  load();
+  if (papers.length === 0) {
+    spawnPaper('welcome to scatter', 'drag papers around the desk');
+    spawnPaper('add a new task', 'tap the + button below\nor press Enter in the modal');
+    spawnPaper('check things off', 'check ✓ to finish a task\nthe ✕ crumples it away');
+  } else {
+    render();
+  }
+</script>
+</body>
+</html>
