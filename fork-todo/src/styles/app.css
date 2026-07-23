@@ -1,0 +1,507 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --c-bg: #f5f5f5;
+  --c-surface: #ffffff;
+  --c-border: #e0e0e0;
+  --c-text: #1a1a1a;
+  --c-text-secondary: #777;
+  --c-dim: #bbb;
+  --c-work: #4a90d9;
+  --c-personal: #4caf50;
+  --c-club: #9c27b0;
+  --c-gym: #ff9800;
+  --c-accent: #1a1a1a;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+  background: var(--c-bg);
+  color: var(--c-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Layout */
+.app {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.app-header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.app-header h1 a {
+  color: var(--c-text);
+  text-decoration: none;
+}
+
+/* Navigation */
+.nav {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.nav button {
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: var(--c-text-secondary);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.nav button:hover {
+  color: var(--c-text);
+  background: var(--c-border);
+}
+
+/* Dashboard */
+.dashboard {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.column {
+  background: var(--c-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  min-height: 300px;
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--c-border);
+}
+
+.column-header h2 {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.column-header .add-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid var(--c-border);
+  background: none;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-text-secondary);
+}
+
+.column-header .add-btn:hover {
+  border-color: var(--c-text);
+  color: var(--c-text);
+}
+
+/* Task Card */
+.task-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s;
+  user-select: none;
+}
+
+.task-card:hover {
+  background: var(--c-bg);
+}
+
+.task-card input[type='checkbox'] {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--c-accent);
+}
+
+.task-card .task-title {
+  flex: 1;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-card.completed .task-title {
+  text-decoration: line-through;
+  color: var(--c-text-secondary);
+}
+
+.task-card.completed {
+  opacity: 0.5;
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.badge-fork {
+  background: var(--c-bg);
+  color: var(--c-text-secondary);
+}
+
+.badge-context {
+  color: #fff;
+}
+
+.badge-context.work {
+  background: var(--c-work);
+}
+.badge-context.personal {
+  background: var(--c-personal);
+}
+.badge-context.club {
+  background: var(--c-club);
+}
+.badge-context.gym {
+  background: var(--c-gym);
+}
+
+/* Focus View */
+.focus-view {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.back-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.back-row button {
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: var(--c-text-secondary);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.back-row button:hover {
+  color: var(--c-text);
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--c-text-secondary);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.breadcrumb span {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.breadcrumb span:hover {
+  background: var(--c-bg);
+}
+
+.breadcrumb .sep {
+  color: var(--c-dim);
+  cursor: default;
+}
+
+.focus-task {
+  background: var(--c-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.focus-task h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.focus-task .description {
+  font-size: 14px;
+  color: var(--c-text-secondary);
+  margin-bottom: 16px;
+  resize: vertical;
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  line-height: inherit;
+}
+
+.focus-task .description:focus {
+  outline: none;
+}
+
+.focus-task .meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.focus-task .actions {
+  display: flex;
+  gap: 8px;
+}
+
+.focus-task .actions button,
+.fork-form button {
+  background: none;
+  border: 1px solid var(--c-border);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--c-text);
+}
+
+.focus-task .actions button:hover,
+.fork-form button:hover {
+  border-color: var(--c-text);
+}
+
+.focus-task .actions button.primary,
+.fork-form button.primary {
+  background: var(--c-text);
+  color: #fff;
+  border-color: var(--c-text);
+}
+
+/* Fork section */
+.fork-section {
+  margin-top: 24px;
+}
+
+.fork-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--c-text-secondary);
+}
+
+.fork-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.fork-form input {
+  flex: 1;
+  border: 1px solid var(--c-border);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.fork-form input:focus {
+  outline: none;
+  border-color: var(--c-text);
+}
+
+.fork-list .task-card {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--c-bg);
+}
+
+/* Tree View */
+.tree-view {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.tree-node {
+  padding-left: 24px;
+  border-left: 1.5px solid var(--c-border);
+  margin-left: 12px;
+}
+
+.tree-node .node-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.tree-node .node-row:hover {
+  background: var(--c-bg);
+}
+
+.tree-node .node-row.abandoned {
+  opacity: 0.4;
+}
+
+.tree-node .node-row.completed .task-title {
+  text-decoration: line-through;
+  color: var(--c-text-secondary);
+}
+
+/* Inbox */
+.inbox {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.inbox h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.inbox-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.inbox-filters select {
+  padding: 4px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  font-size: 13px;
+  background: var(--c-surface);
+  font-family: inherit;
+}
+
+.inbox-filters input {
+  padding: 4px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  flex: 1;
+  min-width: 160px;
+}
+
+.inbox-filters input:focus,
+.inbox-filters select:focus {
+  outline: none;
+  border-color: var(--c-text);
+}
+
+/* Create form */
+.create-form {
+  display: flex;
+  gap: 8px;
+  padding: 12px 0;
+  flex-wrap: wrap;
+}
+
+.create-form input {
+  flex: 1;
+  min-width: 160px;
+  border: 1px solid var(--c-border);
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.create-form input:focus {
+  outline: none;
+  border-color: var(--c-text);
+}
+
+.create-form select {
+  padding: 8px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  font-size: 14px;
+  background: var(--c-surface);
+  font-family: inherit;
+}
+
+.create-form button {
+  padding: 8px 14px;
+  border: 1px solid var(--c-text);
+  border-radius: 4px;
+  background: var(--c-text);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.create-form button:hover {
+  opacity: 0.85;
+}
+
+/* Empty state */
+.empty {
+  font-size: 13px;
+  color: var(--c-dim);
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .dashboard {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
+}
